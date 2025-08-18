@@ -73,3 +73,58 @@ static int get_default_gateway(const char *ifname, char *gw_str, size_t gw_len) 
     fclose(f);
     return -1;
 }
+
+
+/* Main routine: list interfaces and print IPv4, MAC, flags and gateway if present */
+int list_interfaces_and_print(void) {
+    struct ifaddrs *ifaddr, *ifa;
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        return -1;
+    }
+
+    printf("Interfaces found:\n");
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_name) continue;
+
+        /* We will print per-interface once for AF_INET entries */
+        if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET) {
+            char ip[INET_ADDRSTRLEN] = {0};
+            char netmask[INET_ADDRSTRLEN] = {0};
+            struct sockaddr_in *sa = (struct sockaddr_in *)ifa->ifa_addr;
+            struct sockaddr_in *nm = (struct sockaddr_in *)ifa->ifa_netmask;
+            inet_ntop(AF_INET, &sa->sin_addr, ip, sizeof(ip));
+            if (nm) inet_ntop(AF_INET, &nm->sin_addr, netmask, sizeof(netmask));
+
+            /* Flags */
+            unsigned int flags = ifa->ifa_flags;
+            printf("  %s:\n", ifa->ifa_name);
+            printf("    IPv4: %s\n", ip);
+            printf("    Netmask: %s\n", netmask);
+            printf("    Flags: %s%s%s%s\n",
+                   (flags & IFF_UP) ? "UP " : "",
+                   (flags & IFF_BROADCAST) ? "BROADCAST " : "",
+                   (flags & IFF_LOOPBACK) ? "LOOPBACK " : "",
+                   (flags & IFF_RUNNING) ? "RUNNING " : "");
+
+            /* MAC */
+            char mac[32] = "??:??:??:??:??:??";
+            if (get_mac_ioctl(ifa->ifa_name, mac, sizeof(mac)) == 0) {
+                printf("    MAC: %s\n", mac);
+            } else {
+                printf("    MAC: (unavailable)\n");
+            }
+
+            /* Default gateway for this interface */
+            char gw[INET_ADDRSTRLEN] = {0};
+            if (get_default_gateway(ifa->ifa_name, gw, sizeof(gw)) == 0) {
+                printf("    Default gateway: %s\n", gw);
+            } else {
+                printf("    Default gateway: (none)\n");
+            }
+        }
+    }
+
+    freeifaddrs(ifaddr);
+    return 0;
+}
