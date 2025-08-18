@@ -53,12 +53,12 @@ static int get_default_gateway(const char *ifname, char *gw_str, size_t gw_len) 
         if (sscanf(line, "%63s %lx %lx %X %d %d %d %lx", iface, &dest, &gateway, &flags, &refcnt, &use, &metric, &mask) >= 3) {
             if (strcmp(ifname, iface) == 0) {
                 if (dest == 0) { /* default route */
-                    struct in_addr gw;
+                    
                     
                     /* gateway is in hex */
                     unsigned char *b = (unsigned char *)&gateway;
                     unsigned char bytes[4] = { b[0], b[1], b[2], b[3] };
-                    struct in_addr gw2;
+                    
                     
                     /* To be safe, use inet_ntoa on a constructed addr via bytes: */
                     snprintf(gw_str, gw_len, "%u.%u.%u.%u", bytes[0], bytes[1], bytes[2], bytes[3]);
