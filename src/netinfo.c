@@ -14,7 +14,11 @@
 
 #include "netinfo.h"
 
-
+/* Convert MAC bytes to printable string */
+static void mac_to_str(unsigned char *mac, char *buf, size_t buf_len) {
+    snprintf(buf, buf_len, "%02x:%02x:%02x:%02x:%02x:%02x",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
 
 /* Read MAC for an interface name using ioctl SIOCGIFHWADDR (Linux) */
 static int get_mac_ioctl(const char *ifname, char *mac_str, size_t mac_str_len) {
