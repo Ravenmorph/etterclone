@@ -12,4 +12,4 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
 clean:
-	rm -f $(OBJS) $(TARGET)S
+	rm -f $(OBJS) $(TARGET)
