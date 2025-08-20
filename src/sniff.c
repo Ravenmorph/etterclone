@@ -111,3 +111,16 @@ int start_capture(const char *dev, const char *bpf_filter, const char *out_pcap,
         pcap_handle = NULL;
         return -1;
     }
+    
+ /* cleanup */
+    if (pcap_dumper) {
+        pcap_dump_close(pcap_dumper);
+        pcap_dumper = NULL;
+    }
+    if (pcap_handle) {
+        pcap_close(pcap_handle);
+        pcap_handle = NULL;
+    }
+
+    return 0;
+}
