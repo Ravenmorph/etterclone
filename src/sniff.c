@@ -38,3 +38,24 @@ static void small_hexdump(const u_char *data, int len, int max_bytes) {
         printf("|\n");
     }
 }
+
+/* callback called by pcap_loop for each captured packet */
+static void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
+    (void)user;
+    /* write to pcap file */
+    if (pcap_dumper) pcap_dump((u_char *)pcap_dumper, h, bytes);
+
+    /* one-line summary */
+    time_t t = h->ts.tv_sec;
+    struct tm tm;
+    localtime_r(&t, &tm);
+    char timestr[64];
+    strftime(timestr, sizeof(timestr), "%H:%M:%S", &tm);
+    printf("[%s.%06ld] len=%u cap=%u\n", timestr, (long)h->ts.tv_usec, (unsigned)h->len, (unsigned)h->caplen);
+
+    /* print small hex-dump of first 128 bytes */
+    int max_bytes = 128;
+    small_hexdump(bytes, (int)h->caplen, max_bytes);
+
+    printf("\n");
+}
