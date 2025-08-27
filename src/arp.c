@@ -47,3 +47,27 @@ static int get_iface_info(const char *ifname, int *ifindex, unsigned char mac[6]
     close(fd);
     return 0;
 }
+
+
+
+/* Build an Ethernet+ARP request frame, put into buffer, return length */
+static int build_arp_request(unsigned char *buf, const unsigned char src_mac[6], uint32_t src_ip, uint32_t target_ip) {
+    struct ether_header *eth = (struct ether_header *)buf;
+    memset(eth->ether_dhost, 0xff, 6);             // broadcast
+    memcpy(eth->ether_shost, src_mac, 6);
+    eth->ether_type = htons(ETH_P_ARP);
+
+    struct ether_arp *arp = (struct ether_arp *)(buf + sizeof(struct ether_header));
+    arp->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
+    arp->ea_hdr.ar_pro = htons(ETH_P_IP);
+    arp->ea_hdr.ar_hln = 6;
+    arp->ea_hdr.ar_pln = 4;
+    arp->ea_hdr.ar_op  = htons(ARPOP_REQUEST);
+
+    memcpy(arp->arp_sha, src_mac, 6);
+    memcpy(arp->arp_spa, &src_ip, 4);
+    memset(arp->arp_tha, 0x00, 6);
+    memcpy(arp->arp_tpa, &target_ip, 4);
+
+    return sizeof(struct ether_header) + sizeof(struct ether_arp);
+}
