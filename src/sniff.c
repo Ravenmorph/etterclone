@@ -111,8 +111,18 @@ int start_capture(const char *dev, const char *bpf_filter, const char *out_pcap,
         pcap_handle = NULL;
         return -1;
     }
-    
- /* cleanup */
+
+    /* install Ctrl+C handler */
+    signal(SIGINT, handle_sigint);
+
+    printf("Capturing on %s... Press Ctrl+C to stop.\n", dev);
+
+    /* start packet capture loop (-1 = infinite) */
+    if (pcap_loop(pcap_handle, -1, packet_handler, NULL) == -1) {
+        fprintf(stderr, "pcap_loop failed: %s\n", pcap_geterr(pcap_handle));
+    }
+
+    /* cleanup */
     if (pcap_dumper) {
         pcap_dump_close(pcap_dumper);
         pcap_dumper = NULL;
