@@ -133,3 +133,28 @@ static void mac_to_str(const unsigned char mac[6], char *out, size_t outlen) {
     snprintf(out, outlen, "%02x:%02x:%02x:%02x:%02x:%02x",
              mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
 }
+
+/* ARP scan implementation */
+int arp_scan(const char *ifname, const char *cidr, int timeout_seconds) {
+    int ifindex;
+    unsigned char my_mac[6];
+    uint32_t my_ip;
+    if (get_iface_info(ifname, &ifindex, my_mac, &my_ip) < 0) {
+        fprintf(stderr, "Failed to get interface info for %s: %s\n", ifname, strerror(errno));
+        return -1;
+    }
+
+    uint32_t base_net;
+    int prefix;
+    if (parse_cidr(cidr, &base_net, &prefix) < 0) {
+        fprintf(stderr, "Invalid CIDR: %s\n", cidr);
+        return -1;
+    }
+
+    int host_bits = 32 - prefix;
+    if (host_bits <= 0) {
+        fprintf(stderr, "CIDR too small\n");
+        return -1;
+    }
+    uint32_t host_count = (host_bits >= 31) ? 0xFFFFFFFFu : ((1u << host_bits) - 1u);
+    if (host_count > 65534) host_count = 65534; // safety
