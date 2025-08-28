@@ -95,3 +95,29 @@ static int build_arp_reply(unsigned char *buf, const unsigned char src_mac[6], u
 
     return sizeof(struct ether_header) + sizeof(struct ether_arp);
 }
+
+
+/* Convert dotted IP to uint32_t (network byte order) */
+static int ip_str_to_uint32(const char *s, uint32_t *out) {
+    struct in_addr a;
+    if (inet_aton(s, &a) == 0) return -1;
+    *out = a.s_addr;
+    return 0;
+}
+
+/* Parse CIDR "10.0.2.0/24" into base IP (network byte order) and host count */
+static int parse_cidr(const char *cidr, uint32_t *base_net, int *prefix_len) {
+    char buf[64];
+    strncpy(buf, cidr, sizeof(buf)-1);
+    buf[sizeof(buf)-1] = 0;
+    char *slash = strchr(buf, '/');
+    if (!slash) return -1;
+    *slash = '\0';
+    int plen = atoi(slash+1);
+    if (plen < 0 || plen > 32) return -1;
+    uint32_t net;
+    if (ip_str_to_uint32(buf, &net) < 0) return -1;
+    *base_net = net & htonl( (~0u) << (32 - plen) ); // masked network (network order)
+    *prefix_len = plen;
+    return 0;
+}
