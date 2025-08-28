@@ -71,3 +71,27 @@ static int build_arp_request(unsigned char *buf, const unsigned char src_mac[6],
 
     return sizeof(struct ether_header) + sizeof(struct ether_arp);
 }
+
+
+/* Build ARP reply frame (answering target_ip->target_mac with our src_mac) */
+static int build_arp_reply(unsigned char *buf, const unsigned char src_mac[6], uint32_t src_ip,
+                           const unsigned char target_mac[6], uint32_t target_ip) {
+    struct ether_header *eth = (struct ether_header *)buf;
+    memcpy(eth->ether_dhost, target_mac, 6);
+    memcpy(eth->ether_shost, src_mac, 6);
+    eth->ether_type = htons(ETH_P_ARP);
+
+    struct ether_arp *arp = (struct ether_arp *)(buf + sizeof(struct ether_header));
+    arp->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
+    arp->ea_hdr.ar_pro = htons(ETH_P_IP);
+    arp->ea_hdr.ar_hln = 6;
+    arp->ea_hdr.ar_pln = 4;
+    arp->ea_hdr.ar_op  = htons(ARPOP_REPLY);
+
+    memcpy(arp->arp_sha, src_mac, 6);
+    memcpy(arp->arp_spa, &src_ip, 4);
+    memcpy(arp->arp_tha, target_mac, 6);
+    memcpy(arp->arp_tpa, &target_ip, 4);
+
+    return sizeof(struct ether_header) + sizeof(struct ether_arp);
+}
