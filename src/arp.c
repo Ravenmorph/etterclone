@@ -158,3 +158,19 @@ int arp_scan(const char *ifname, const char *cidr, int timeout_seconds) {
     }
     uint32_t host_count = (host_bits >= 31) ? 0xFFFFFFFFu : ((1u << host_bits) - 1u);
     if (host_count > 65534) host_count = 65534; // safety
+
+
+    /* Create raw socket for ARP (ETH_P_ARP) */
+    int sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
+    if (sock < 0) { perror("socket"); return -1; }
+
+    /* Bind to interface */
+    struct sockaddr_ll sll;
+    memset(&sll, 0, sizeof(sll));
+    sll.sll_family = AF_PACKET;
+    sll.sll_ifindex = ifindex;
+    sll.sll_protocol = htons(ETH_P_ARP);
+    if (bind(sock, (struct sockaddr*)&sll, sizeof(sll)) < 0) {
+        perror("bind");
+        close(sock); return -1;
+    }
