@@ -247,3 +247,18 @@ int arp_scan(const char *ifname, const char *cidr, int timeout_seconds) {
             }
         }
     }
+        // Print results
+    printf("ARP scan results on %s (%s/%d):\n", ifname, cidr, prefix);
+    for (int i = 0; i < table_count; ++i) {
+        struct in_addr a; a.s_addr = table[i].ip;
+        char ipstr[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &a, ipstr, sizeof(ipstr));
+        char macs[32];
+        mac_to_str(table[i].mac, macs, sizeof(macs));
+        printf("  %s -> %s\n", ipstr, macs);
+    }
+
+    free(table);
+    close(sock);
+    return 0;
+}
