@@ -174,3 +174,14 @@ int arp_scan(const char *ifname, const char *cidr, int timeout_seconds) {
         perror("bind");
         close(sock); return -1;
     }
+      /* Build target IP list (skip network & broadcast) and send ARP requests */
+    unsigned char buf[1500];
+    uint32_t base_h = ntohl(base_net); // host-order base
+    uint32_t sent_count = 0;
+
+    // listen loop prepare: we'll poll recv after sending bursts
+    fd_set readfds;
+    struct timeval tv;
+    time_t start = time(NULL);
+    struct arp_entry *table = calloc(65536, sizeof(struct arp_entry));
+    int table_count = 0;
