@@ -185,3 +185,32 @@ int arp_scan(const char *ifname, const char *cidr, int timeout_seconds) {
     time_t start = time(NULL);
     struct arp_entry *table = calloc(65536, sizeof(struct arp_entry));
     int table_count = 0;
+
+      // Send ARP requests in batches
+    for (uint32_t i = 1; i < host_count; ++i) {
+        uint32_t host = base_h + i;
+        uint32_t tgt = htonl(host);
+        // skip our own IP (if in same net)
+        if (tgt == my_ip) continue;
+
+        int frame_len = build_arp_request(buf, my_mac, my_ip, tgt);
+
+        struct sockaddr_ll dst;
+        memset(&dst, 0, sizeof(dst));
+        dst.sll_family = AF_PACKET;
+        dst.sll_ifindex = ifindex;
+        dst.sll_halen = ETH_ALEN;
+        memset(dst.sll_addr, 0xff, 6); // broadcast
+
+        ssize_t r = sendto(sock, buf, frame_len, 0, (struct sockaddr*)&dst, sizeof(dst));
+        if (r <= 0) {
+            // non-fatal
+        } else {
+            sent_count++;
+        }
+
+        // throttle a bit to avoid flooding
+        if ((sent_count % 256) == 0) usleep(20000); // sleep 20ms every 256
+        // allow early exit due to time
+        if (time(NULL) - start > timeout_seconds/2) break;
+    }
