@@ -214,3 +214,36 @@ int arp_scan(const char *ifname, const char *cidr, int timeout_seconds) {
         // allow early exit due to time
         if (time(NULL) - start > timeout_seconds/2) break;
     }
+
+     // Now receive replies until timeout_seconds
+    time_t deadline = start + timeout_seconds;
+    while (time(NULL) < deadline) {
+        FD_ZERO(&readfds);
+        FD_SET(sock, &readfds);
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+        int sel = select(sock+1, &readfds, NULL, NULL, &tv);
+        if (sel > 0 && FD_ISSET(sock, &readfds)) {
+            unsigned char rbuf[2048];
+            ssize_t len = recvfrom(sock, rbuf, sizeof(rbuf), 0, NULL, NULL);
+            if (len <= 0) continue;
+            if (len < (ssize_t)(sizeof(struct ether_header) + sizeof(struct ether_arp))) continue;
+            struct ether_header *reth = (struct ether_header *)rbuf;
+            if (ntohs(reth->ether_type) != ETH_P_ARP) continue;
+            struct ether_arp *rearp = (struct ether_arp *)(rbuf + sizeof(struct ether_header));
+            if (ntohs(rearp->ea_hdr.ar_op) != ARPOP_REPLY) continue;
+
+            uint32_t rip;
+            memcpy(&rip, rearp->arp_spa, 4);
+            // check for duplicate
+            int found = 0;
+            for (int k = 0; k < table_count; ++k) {
+                if (table[k].ip == rip) { found = 1; break; }
+            }
+            if (!found) {
+                memcpy(table[table_count].mac, rearp->arp_sha, 6);
+                table[table_count].ip = rip;
+                table_count++;
+            }
+        }
+    }
