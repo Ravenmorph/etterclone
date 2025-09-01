@@ -276,3 +276,23 @@ int arp_responder(const char *ifname, const char *ip_to_answer) {
         fprintf(stderr, "get_iface_info failed: %s\n", strerror(errno));
         return -1;
     }
+
+
+    uint32_t answer_ip;
+    if (ip_str_to_uint32(ip_to_answer, &answer_ip) < 0) {
+        fprintf(stderr, "Invalid IP: %s\n", ip_to_answer);
+        return -1;
+    }
+
+    int sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
+    if (sock < 0) { perror("socket"); return -1; }
+
+    struct sockaddr_ll sll;
+    memset(&sll, 0, sizeof(sll));
+    sll.sll_family = AF_PACKET;
+    sll.sll_ifindex = ifindex;
+    sll.sll_protocol = htons(ETH_P_ARP);
+    if (bind(sock, (struct sockaddr*)&sll, sizeof(sll)) < 0) {
+        perror("bind");
+        close(sock); return -1;
+    }
