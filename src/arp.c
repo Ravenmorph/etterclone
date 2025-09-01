@@ -296,3 +296,22 @@ int arp_responder(const char *ifname, const char *ip_to_answer) {
         perror("bind");
         close(sock); return -1;
     }
+
+
+
+    signal(SIGINT, int_handler);
+    printf("ARP responder running on %s answering for %s. Ctrl+C to stop.\n", ifname, ip_to_answer);
+
+    unsigned char rbuf[2048];
+    while (keep_running) {
+        ssize_t len = recvfrom(sock, rbuf, sizeof(rbuf), 0, NULL, NULL);
+        if (len <= 0) continue;
+        if (len < (ssize_t)(sizeof(struct ether_header) + sizeof(struct ether_arp))) continue;
+        struct ether_header *reth = (struct ether_header *)rbuf;
+        if (ntohs(reth->ether_type) != ETH_P_ARP) continue;
+        struct ether_arp *rearp = (struct ether_arp *)(rbuf + sizeof(struct ether_header));
+        if (ntohs(rearp->ea_hdr.ar_op) != ARPOP_REQUEST) continue;
+
+        uint32_t tpa;
+        memcpy(&tpa, rearp->arp_tpa, 4);
+        if (tpa != answer_ip) continue; // not asking for the IP we're answering
