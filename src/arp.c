@@ -262,3 +262,17 @@ int arp_scan(const char *ifname, const char *cidr, int timeout_seconds) {
     close(sock);
     return 0;
 }
+
+
+/* Responder: reply to ARP requests for ip_to_answer using local MAC */
+static volatile int keep_running = 1;
+static void int_handler(int s) { (void)s; keep_running = 0; }
+
+int arp_responder(const char *ifname, const char *ip_to_answer) {
+    int ifindex;
+    unsigned char my_mac[6];
+    uint32_t my_ip;
+    if (get_iface_info(ifname, &ifindex, my_mac, &my_ip) < 0) {
+        fprintf(stderr, "get_iface_info failed: %s\n", strerror(errno));
+        return -1;
+    }
