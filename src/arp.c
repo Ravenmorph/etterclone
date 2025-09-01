@@ -315,3 +315,31 @@ int arp_responder(const char *ifname, const char *ip_to_answer) {
         uint32_t tpa;
         memcpy(&tpa, rearp->arp_tpa, 4);
         if (tpa != answer_ip) continue; // not asking for the IP we're answering
+
+
+           // build reply: target = requestor
+        unsigned char reply[1500];
+        build_arp_reply(reply, my_mac, answer_ip, rearp->arp_sha, *((uint32_t*)rearp->arp_spa));
+
+        struct sockaddr_ll dst;
+        memset(&dst, 0, sizeof(dst));
+        dst.sll_family = AF_PACKET;
+        dst.sll_ifindex = ifindex;
+        dst.sll_halen = ETH_ALEN;
+        memcpy(dst.sll_addr, reth->ether_shost, 6);
+
+        ssize_t s = sendto(sock, reply, sizeof(struct ether_header)+sizeof(struct ether_arp), 0, (struct sockaddr*)&dst, sizeof(dst));
+        if (s <= 0) {
+            perror("sendto");
+        } else {
+            char macs[32], ipstr[INET_ADDRSTRLEN];
+            mac_to_str(reth->ether_shost, macs, sizeof(macs));
+            struct in_addr ia; ia.s_addr = *((uint32_t*)rearp->arp_spa);
+            inet_ntop(AF_INET, &ia, ipstr, sizeof(ipstr));
+            printf("Replied to ARP request from %s (%s)\n", ipstr, macs);
+        }
+    }
+
+    close(sock);
+    return 0;
+}
