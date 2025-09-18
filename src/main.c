@@ -1,42 +1,69 @@
-#include <unistd.h>   // for getuid()
+// src/main.c
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "netinfo.h"  // your W1 module
-#include "sniff.h"
+
+#include "netinfo.h"  // W1
+#include "sniff.h"    // W2 (start_capture)
+#include "arp.h"      // W3 (arp_scan, arp_responder)
 
 int main(int argc, char **argv) {
-    printf("W2: capture tool\n\n");
-
-    /* Option A: take device from argv[1], filter from argv[2], out file argv[3]
-       Usage: sudo ./etterclone_w2 <interface> "<bpf filter>" <out.pcap>
-       Example: sudo ./etterclone_w2 wlp2s0 "not udp port 5353 and not udp port 1900" capture.pcap
-    */
-    if (argc < 4) {
-        printf("Usage: sudo %s <interface> \"<bpf filter>\" <out.pcap>\n", argv[0]);
-        printf("Example filters:\n");
-        printf("  \"udp port 53\"                 (DNS only)\n");
-        printf("  \"tcp port 443 or udp port 443\" (HTTPS/QUIC-ish)\n");
-        printf("  \"not (udp port 5353 or udp port 5355 or udp port 1900)\"  (exclude mDNS/LLMNR/SSDP noise)\n\n");
-        printf("Available interfaces (from W1):\n");
-        list_interfaces_and_print();   /* show interfaces discovered in W1 */
+    if (argc < 2) {
+        fprintf(stderr, "Usage:\n");
+        fprintf(stderr, "  %s sniff <iface> <bpf filter> <out.pcap>\n", argv[0]);
+        fprintf(stderr, "  %s scan <iface> <cidr> <timeout>\n", argv[0]);
+        fprintf(stderr, "  %s responder <iface> <ip>\n", argv[0]);
         return 1;
     }
 
-    const char *dev = argv[1];
-    const char *filter = argv[2];
-    const char *out = argv[3];
-    int snaplen = 65535;
+    if (strcmp(argv[1], "sniff") == 0) {
+        if (argc < 5) {
+            fprintf(stderr, "Usage: %s sniff <iface> \"<bpf filter>\" <out.pcap>\n", argv[0]);
+            list_interfaces_and_print();
+            return 1;
+        }
+        const char *dev = argv[2];
+        const char *filter = argv[3];
+        const char *out = argv[4];
+        int snaplen = 65535;
 
-    if (getuid() != 0) {
-        fprintf(stderr, "Warning: usually you should run this as root for capturing on interfaces.\n");
+        if (geteuid() != 0) {
+            fprintf(stderr, "Warning: usually you should run this as root for capturing on interfaces.\n");
+        }
+
+        if (start_capture(dev, filter, out, snaplen) != 0) {
+            fprintf(stderr, "Capture failed\n");
+            return 1;
+        }
+        printf("Capture finished. Saved to %s\n", out);
+        return 0;
     }
 
-    if (start_capture(dev, filter, out, snaplen) != 0) {
-        fprintf(stderr, "Capture failed\n");
+    else if (strcmp(argv[1], "scan") == 0) {
+        if (argc < 5) {
+            fprintf(stderr, "Usage: %s scan <iface> <cidr> <timeout>\n", argv[0]);
+            return 1;
+        }
+        const char *iface = argv[2];
+        const char *cidr = argv[3];
+        int timeout = atoi(argv[4]);
+        return arp_scan(iface, cidr, timeout);
+    }
+
+    else if (strcmp(argv[1], "responder") == 0) {
+        if (argc < 4) {
+            fprintf(stderr, "Usage: %s responder <iface> <ip>\n", argv[0]);
+            return 1;
+        }
+        const char *iface = argv[2];
+        const char *ip = argv[3];
+        return arp_responder(iface, ip);
+    }
+
+    else {
+        fprintf(stderr, "Unknown mode: %s\n", argv[1]);
         return 1;
     }
-
-    printf("Capture finished. Saved to %s\n", out);
-    return 0;
 }
+
